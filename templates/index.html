@@ -1,49 +1,884 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
-    <title>RPi Zero Status</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Raspberry Pi Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
     <style>
-        body { background: #0b0c10; color: #66fcf1; font-family: monospace; text-align: center; margin: 0; padding: 20px;}
-        canvas { background: #1f2833; border-radius: 8px; margin-top: 20px; box-shadow: 0 0 15px rgba(102, 252, 241, 0.2); }
-        .dashboard { display: flex; justify-content: center; align-items: center; gap: 30px; margin-top: 10px; font-size: 1.2rem; }
-        button { padding: 10px 25px; background: #45a29e; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        button:hover { background: #66fcf1; color: #0b0c10; }
+        :root {
+            --bg-color: #0d1117;
+            --card-bg: #161b22;
+            --card-bg-hover: #1c2128;
+            --text-main: #c9d1d9;
+            --text-muted: #8b949e;
+            --border-color: #30363d;
+            --cpu-color: #58a6ff;
+            --mem-color: #bc8cff;
+            --proc-color: #ff7b72;
+            --net-up: #79c0ff;
+            --net-down: #d2a8ff;
+            --success-color: #3fb950;
+            --warning-color: #d29922;
+            --danger-color: #f85149;
+            --header-bg: #161b22;
+            --shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+            --gradient-start: rgba(88, 166, 255, 0.2);
+            --gradient-end: rgba(88, 166, 255, 0);
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Inter", "PingFang SC", "Microsoft YaHei";
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 16px;
+        }
+
+        .dashboard-header {
+            background: var(--header-bg);
+            border-radius: 10px;
+            padding: 14px 18px;
+            margin-bottom: 18px;
+            box-shadow: var(--shadow);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid var(--border-color);
+        }
+
+        .sys-info {
+            display: flex;
+            gap: 24px;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .sys-info strong {
+            color: var(--text-main);
+            font-weight: 600;
+            margin-left: 4px;
+        }
+
+        .sys-info-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 20px;
+        }
+
+        .metric-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 18px;
+            box-shadow: var(--shadow);
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .metric-card:hover {
+            border-color: var(--cpu-color);
+            transform: translateY(-2px);
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.6);
+        }
+
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--cpu-color), var(--mem-color));
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .metric-card:hover::before {
+            opacity: 1;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            font-size: 15px;
+            font-weight: 600;
+        }
+
+        .card-icon {
+            font-size: 18px;
+            margin-right: 6px;
+        }
+
+        .value-display {
+            font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+            font-size: 24px;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+
+        .unit {
+            font-size: 14px;
+            font-weight: 500;
+            margin-left: 4px;
+            opacity: 0.8;
+        }
+
+        .net-stats {
+            display: flex;
+            gap: 16px;
+            font-size: 13px;
+        }
+
+        .net-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .chart-box {
+            width: 100%;
+            height: 140px;
+            margin-top: 10px;
+            flex-grow: 1;
+        }
+
+        .card-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 14px;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--success-color);
+            margin-left: 6px;
+        }
+
+        .status-warning {
+            background-color: var(--warning-color);
+        }
+
+        .status-danger {
+            background-color: var(--danger-color);
+        }
+
+        .memory-stats {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .circle-progress-container {
+            position: relative;
+            width: 40px;
+            height: 40px;
+        }
+
+        .circle-progress {
+            transform: rotate(0deg);
+        }
+        
+        .circle-progress.reverse {
+            transform: rotate(0deg) scaleX(-1);
+        }
+
+        .circle-bg {
+            stroke: var(--border-color);
+        }
+
+        .circle-progress-bar {
+            stroke-dasharray: 100 100;
+            transition: stroke-dasharray 0.3s ease;
+        }
+
+        .circle-text {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .circle-value {
+            font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .memory-header {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .memory-details {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .mem-detail, .swap-detail {
+            font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+        }
+
+        .mem-detail {
+            color: var(--mem-color);
+        }
+
+        .swap-detail {
+            color: #d2a8ff;
+        }
+
+        .title-section {
+            display: flex;
+            align-items: center;
+            margin-bottom: 14px;
+        }
+
+        .title-section h1 {
+            font-size: 22px;
+            font-weight: 700;
+            margin: 0;
+            color: var(--text-main);
+        }
+
+        .title-section .subtitle {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-left: 10px;
+        }
+
+        .system-info-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-top: 10px;
+        }
+
+        .system-info-item {
+            display: flex;
+            flex-direction: column;
+            padding: 8px 12px;
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+        }
+
+        .info-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .info-value {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-main);
+            font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+        }
+
+        /* 响应式设计 - 手机端优化 */
+        @media (max-width: 768px) {
+            .container {
+                padding: 12px;
+            }
+            
+            .dashboard-header {
+                padding: 12px 14px;
+                margin-bottom: 16px;
+            }
+            
+            .sys-info {
+                flex-wrap: wrap;
+                gap: 12px;
+                font-size: 12px;
+            }
+            
+            .sys-info-item {
+                flex: 1 0 calc(50% - 12px);
+                min-width: 140px;
+            }
+            
+            .grid-container {
+                grid-template-columns: 1fr;
+                gap: 14px;
+            }
+            
+            .metric-card {
+                padding: 16px;
+            }
+            
+            .card-header {
+                font-size: 14px;
+                margin-bottom: 14px;
+            }
+            
+            .value-display {
+                font-size: 22px;
+            }
+            
+            .chart-box {
+                height: 120px;
+            }
+            
+            .title-section h1 {
+                font-size: 20px;
+            }
+            
+            .title-section .subtitle {
+                font-size: 12px;
+                margin-left: 8px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .sys-info-item {
+                flex: 1 0 100%;
+            }
+            
+            .metric-card {
+                padding: 14px;
+            }
+            
+            .chart-box {
+                height: 100px;
+            }
+            
+            .value-display {
+                font-size: 20px;
+            }
+        }
     </style>
 </head>
 <body>
-    <div class="dashboard">
-        <div id="stats">CPU: --% | RAM: --% | Temp: --°C</div>
-        <button onclick="control('start')">运行</button>
-        <button onclick="control('stop')">暂停</button>
+
+    <div class="container">
+        <div class="title-section">
+            <h1>Raspberry Pi Dashboard</h1>
+            <div class="subtitle">Real-time System Monitoring</div>
+        </div>
+
+        <div class="dashboard-header">
+            <div class="sys-info">
+                <div class="sys-info-item">
+                    <span>System:</span>
+                    <strong id="system-display">Pi OS Lite(Bookworm)</strong>
+                </div>
+                <div class="sys-info-item">
+                    <span>Uptime:</span>
+                    <strong id="uptime-display">--</strong>
+                </div>
+                <div class="sys-info-item">
+                    <span>Load:</span>
+                    <strong id="load-display">--</strong>
+                </div>
+                <div class="sys-info-item">
+                    <span>Temp:</span>
+                    <strong id="temp-display">-- °C</strong>
+                    <span class="status-indicator" id="cpu-status-indicator"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid-container">
+        <div class="metric-card">
+            <div class="card-header">
+                <span>CPU Usage</span>
+                <span class="value-display" style="color: var(--cpu-color)" id="cpu-val">0%</span>
+            </div>
+            <div id="chart-cpu" class="chart-box"></div>
+        </div>
+
+        <div class="metric-card">
+            <div class="card-header">
+                <div class="memory-header">
+                    <span>Memory</span>
+                    <div class="memory-details">
+                        <span class="mem-detail">mem: <span id="mem-detail">0/0 MB</span></span>
+                        <span class="swap-detail">swap: <span id="swap-detail">0/0 MB</span></span>
+                    </div>
+                </div>
+                <div class="memory-stats">
+                    <div class="circle-progress-container">
+                        <svg class="circle-progress" width="40" height="40" viewBox="0 0 40 40">
+                            <circle class="circle-bg" cx="20" cy="20" r="16" fill="none" stroke="var(--border-color)" stroke-width="4"/>
+                            <circle class="circle-progress-bar" cx="20" cy="20" r="16" fill="none" stroke="var(--mem-color)" stroke-width="4" 
+                                    stroke-linecap="round" transform="rotate(-90 20 20)" stroke-dasharray="0 100"/>
+                        </svg>
+                        <div class="circle-text">
+                            <span class="circle-value" id="mem-percent">0%</span>
+                        </div>
+                    </div>
+                    <div class="circle-progress-container">
+                        <svg class="circle-progress reverse" width="40" height="40" viewBox="0 0 40 40">
+                            <circle class="circle-bg" cx="20" cy="20" r="16" fill="none" stroke="var(--border-color)" stroke-width="4"/>
+                            <circle class="circle-progress-bar" cx="20" cy="20" r="16" fill="none" stroke="#d2a8ff" stroke-width="4" 
+                                    stroke-linecap="round" transform="rotate(-90 20 20)" stroke-dasharray="100 0"/>
+                        </svg>
+                        <div class="circle-text">
+                            <span class="circle-value" id="swap-percent">0%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="chart-mem" class="chart-box"></div>
+        </div>
+
+        <div class="metric-card">
+            <div class="card-header">
+                <span>Processes</span>
+                <span class="value-display" style="color: var(--proc-color)" id="proc-val">0</span>
+            </div>
+            <div id="chart-proc" class="chart-box"></div>
+        </div>
+
+        <div class="metric-card">
+            <div class="card-header">
+                <span>Network</span>
+                <div class="net-stats value-display">
+                    <span style="color: var(--net-up)">↑ <span id="net-up-val">0 B/s</span></span>
+                    <span style="color: var(--net-down)">↓ <span id="net-down-val">0 B/s</span></span>
+                </div>
+            </div>
+            <div id="chart-net" class="chart-box"></div>
+        </div>
+
+        <div class="metric-card">
+            <div class="card-header">
+                <span>System Information</span>
+            </div>
+            <div class="system-info-grid" id="system-info-grid">
+                <div class="system-info-item">
+                    <span class="info-label">OS Version:</span>
+                    <span class="info-value" id="sys-version">--</span>
+                </div>
+                <div class="system-info-item">
+                    <span class="info-label">Architecture:</span>
+                    <span class="info-value" id="sys-arch">--</span>
+                </div>
+                <div class="system-info-item">
+                    <span class="info-label">Processor:</span>
+                    <span class="info-value" id="sys-processor">ARM Cortex-A53</span>
+                </div>
+                <div class="system-info-item">
+                    <span class="info-label">CPU Cores:</span>
+                    <span class="info-value" id="sys-cpu-cores">--</span>
+                </div>
+                <div class="system-info-item">
+                    <span class="info-label">CPU Frequency:</span>
+                    <span class="info-value" id="sys-cpu-freq">--</span>
+                </div>
+                <div class="system-info-item">
+                    <span class="info-label">Disk Usage:</span>
+                    <span class="info-value" id="sys-disk-usage">--</span>
+                </div>
+            </div>
+        </div>
     </div>
-    <canvas id="simCanvas" width="800" height="500"></canvas>
 
     <script>
-        let isRunning = true;
-        
-        // 监控数据轮询
-        setInterval(async () => {
-            const res = await fetch('/api/stats');
-            const data = await res.json();
-            document.getElementById('stats').innerText = `CPU: ${data.cpu}% | RAM: ${data.ram}% | Temp: ${data.temp}°C`;
-            isRunning = data.running;
-        }, 2000);
+        // 初始化图表
+        const charts = {
+            cpu: echarts.init(document.getElementById('chart-cpu')),
+            mem: echarts.init(document.getElementById('chart-mem')),
+            proc: echarts.init(document.getElementById('chart-proc')),
+            net: echarts.init(document.getElementById('chart-net'))
+        };
 
-        async function control(action) {
-            await fetch(`/api/control/${action}`, {method: 'POST'});
-        }
+        // 数据存储数组 (保留30个数据点，约1分钟，每2秒一个点)
+        const historyData = {
+            cpu: Array(30).fill(0),
+            mem: Array(30).fill(0),
+            swap: Array(30).fill(0),
+            proc: Array(30).fill(null),
+            netUp: Array(30).fill(0),
+            netDown: Array(30).fill(0)
+        };
 
-        // 简易渲染循环框架（你可以在此接入牛顿万有引力公式计算三体坐标）
-        const ctx = document.getElementById('simCanvas').getContext('2d');
-        function draw() {
-            if (isRunning) {
-                // 绘制逻辑与坐标更新...
-                ctx.fillStyle = 'rgba(31, 40, 51, 0.1)'; // 产生拖尾效果
-                ctx.fillRect(0, 0, 800, 500);
+        // 网络计算状态
+        let lastNet = { sent: 0, recv: 0, time: 0 };
+
+        // 格式化网速
+        const formatBytes = (bytes) => {
+            if (bytes === 0) return '0 B/s';
+            const k = 1024;
+            const sizes = ['B/s', 'KB/s', 'MB/s', 'GB/s'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        };
+
+        // 格式化运行时间
+        const formatUptime = (seconds) => {
+            const d = Math.floor(seconds / 86400);
+            const h = Math.floor((seconds % 86400) / 3600);
+            const m = Math.floor((seconds % 3600) / 60);
+            return `${d}d ${h}h ${m}m`;
+        };
+
+        // 计算数据的动态范围
+        const calculateDynamicRange = (data, minPadding = 0.1) => {
+            if (data.length === 0) return { min: 0, max: 100 };
+            
+            const validData = data.filter(v => v !== null && !isNaN(v));
+            if (validData.length === 0) return { min: 0, max: 100 };
+            
+            let min = Math.min(...validData);
+            let max = Math.max(...validData);
+            
+            // 添加一些padding
+            const range = max - min;
+            if (range === 0) {
+                min = Math.max(0, min - min * minPadding);
+                max = min + 10;
+            } else {
+                min = Math.max(0, min - range * minPadding);
+                max = max + range * minPadding;
             }
-            requestAnimationFrame(draw);
+            
+            return { min, max };
+        };
+
+        // 获取渐变色对象
+        const getGradient = (hexColor) => {
+            return new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                { offset: 0, color: hexColor + '80' }, // 50% 透明度
+                { offset: 1, color: hexColor + '10' }  // 10% 透明度
+            ]);
+        };
+
+        // 更新图表配置
+        const updateChartConfigs = () => {
+            // 显示30个数据点（1分钟）
+            const dataPoints = 30;
+            const displayData = {
+                cpu: historyData.cpu.slice(-dataPoints),
+                mem: historyData.mem.slice(-dataPoints),
+                swap: historyData.swap.slice(-dataPoints),
+                proc: historyData.proc.slice(-dataPoints).filter(v => v !== null),
+                netUp: historyData.netUp.slice(-dataPoints),
+                netDown: historyData.netDown.slice(-dataPoints)
+            };
+
+            // 计算动态范围
+            const cpuRange = calculateDynamicRange(displayData.cpu);
+            const memRange = calculateDynamicRange([...displayData.mem, ...displayData.swap]);
+            const procRange = calculateDynamicRange(displayData.proc);
+            const netRange = calculateDynamicRange([...displayData.netUp, ...displayData.netDown]);
+
+            // 基础配置
+            const baseOption = {
+                grid: { top: 10, bottom: 0, left: 0, right: 0 },
+                xAxis: { 
+                    type: 'category', 
+                    show: false, 
+                    boundaryGap: false, 
+                    data: Array(dataPoints).fill('') 
+                },
+                animation: false,
+                tooltip: { 
+                    trigger: 'axis', 
+                    axisPointer: { type: 'line' }, 
+                    backgroundColor: 'rgba(22, 27, 34, 0.95)', 
+                    borderColor: '#30363d', 
+                    textStyle: { color: '#c9d1d9' },
+                    formatter: (params) => {
+                        let result = '';
+                        params.forEach(param => {
+                            let value = param.value;
+                            if (param.seriesName === 'Up' || param.seriesName === 'Down') {
+                                value = formatBytes(value).replace('/s', '');
+                            } else if (param.seriesName === 'CPU' || param.seriesName === 'Memory' || param.seriesName === 'Swap') {
+                                value = value.toFixed(1) + '%';
+                            } else {
+                                value = Math.round(value);
+                            }
+                            result += `<div style="margin: 2px 0;">
+                                <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${param.color};margin-right:8px"></span>
+                                ${param.seriesName}: <strong>${value}</strong>
+                            </div>`;
+                        });
+                        return result;
+                    }
+                }
+            };
+
+            // 更新CPU图表
+            charts.cpu.setOption({
+                ...baseOption,
+                yAxis: { 
+                    type: 'value', 
+                    show: false, 
+                    min: Math.max(0, cpuRange.min - 5),
+                    max: Math.min(100, cpuRange.max + 5),
+                    splitLine: { show: false }
+                },
+                series: [{ 
+                    name: 'CPU',
+                    type: 'line', 
+                    smooth: true, 
+                    symbol: 'none', 
+                    lineStyle: { color: '#58a6ff', width: 2 }, 
+                    areaStyle: { color: getGradient('#58a6ff') }, 
+                    data: displayData.cpu 
+                }]
+            });
+
+            // 更新内存图表（双折线：内存和swap）
+            charts.mem.setOption({
+                ...baseOption,
+                yAxis: { 
+                    type: 'value', 
+                    show: false, 
+                    min: Math.max(0, memRange.min - 5),
+                    max: Math.min(100, memRange.max + 5),
+                    splitLine: { show: false }
+                },
+                series: [
+                    { 
+                        name: 'Memory',
+                        type: 'line', 
+                        smooth: true, 
+                        symbol: 'none', 
+                        lineStyle: { color: '#bc8cff', width: 2 }, 
+                        areaStyle: { color: getGradient('#bc8cff') }, 
+                        data: displayData.mem 
+                    },
+                    { 
+                        name: 'Swap',
+                        type: 'line', 
+                        smooth: true, 
+                        symbol: 'none', 
+                        lineStyle: { color: '#d2a8ff', width: 1.5 }, 
+                        data: displayData.swap 
+                    }
+                ]
+            });
+
+            // 更新进程图表
+            charts.proc.setOption({
+                ...baseOption,
+                yAxis: { 
+                    type: 'value', 
+                    show: false, 
+                    min: Math.max(0, procRange.min - 5),
+                    max: procRange.max + 5,
+                    splitLine: { show: false }
+                },
+                series: [{ 
+                    name: 'Processes',
+                    type: 'line', 
+                    smooth: true, 
+                    symbol: 'none', 
+                    lineStyle: { color: '#ff7b72', width: 2 }, 
+                    areaStyle: { color: getGradient('#ff7b72') }, 
+                    data: displayData.proc 
+                }]
+            });
+
+            // 更新网络图表
+            charts.net.setOption({
+                ...baseOption,
+                yAxis: { 
+                    type: 'value', 
+                    show: false, 
+                    min: Math.max(0, netRange.min),
+                    max: netRange.max,
+                    splitLine: { show: false }
+                },
+                series: [
+                    { 
+                        name: 'Up', 
+                        type: 'line', 
+                        smooth: true, 
+                        symbol: 'none', 
+                        lineStyle: { color: '#79c0ff', width: 1.5 }, 
+                        data: displayData.netUp 
+                    },
+                    { 
+                        name: 'Down', 
+                        type: 'line', 
+                        smooth: true, 
+                        symbol: 'none', 
+                        lineStyle: { color: '#d2a8ff', width: 1.5 }, 
+                        data: displayData.netDown 
+                    }
+                ]
+            });
+        };
+
+        // 获取系统信息并更新状态指示器
+        const updateSystemInfo = (data) => {
+            // 更新系统名称
+            document.getElementById('system-display').textContent = `${data.system} (RPi)`;
+            
+            // 更新运行时间
+            document.getElementById('uptime-display').innerHTML = `Uptime:<strong>${formatUptime(data.uptime)}</strong>`;
+            
+            // 更新负载
+            document.getElementById('load-display').innerHTML = `Load:<strong>${data.load}</strong>`;
+            
+            // 更新温度
+            const temp = data.temp;
+            document.getElementById('temp-display').innerHTML = `Temp:<strong>${temp} °C</strong>`;
+            
+            // 根据CPU占用更新状态指示器（放在温度之后）
+            const cpuPercent = data.cpu_percent;
+            const statusIndicator = document.getElementById('cpu-status-indicator');
+            if (cpuPercent > 80) {
+                statusIndicator.className = 'status-indicator status-danger';
+            } else if (cpuPercent > 60) {
+                statusIndicator.className = 'status-indicator status-warning';
+            } else {
+                statusIndicator.className = 'status-indicator';
+            }
+        };
+
+        async function fetchData() {
+            try {
+                const res = await fetch('/api/stats');
+                const data = await res.json();
+                const now = Date.now();
+
+                // 更新系统信息
+                updateSystemInfo(data);
+
+                // 更新静态数值
+                document.getElementById('cpu-val').innerText = data.cpu_percent.toFixed(1) + '%';
+                document.getElementById('proc-val').innerText = data.procs;
+
+                // 更新内存和swap环形进度条
+                const memPercent = data.mem_percent;
+                const swapPercent = data.swap_percent;
+                
+                // 更新百分比显示
+                document.getElementById('mem-percent').innerText = memPercent.toFixed(0) + '%';
+                document.getElementById('swap-percent').innerText = swapPercent.toFixed(0) + '%';
+                
+                // 更新内存详情显示
+                document.getElementById('mem-detail').innerText = `${data.mem_used.toFixed(0)}MB/${data.mem_total.toFixed(0)}MB`;
+                document.getElementById('swap-detail').innerText = `${data.swap_used.toFixed(0)}MB/${data.swap_total.toFixed(0)}MB`;
+                
+                // 更新环形进度条
+                const memCircle = document.querySelector('.circle-progress:not(.reverse) .circle-progress-bar');
+                const swapCircle = document.querySelector('.circle-progress.reverse .circle-progress-bar');
+                
+                if (memCircle) {
+                    const circumference = 2 * Math.PI * 16;
+                    const memOffset = circumference - (memPercent / 100) * circumference;
+                    memCircle.style.strokeDasharray = `${circumference - memOffset} ${memOffset}`;
+                }
+                
+                if (swapCircle) {
+                    const circumference = 2 * Math.PI * 16;
+                    // 对于反向环状图，占用越多黑色部分越多
+                    // 所以显示的部分是未占用的部分
+                    const swapUnusedPercent = 100 - swapPercent;
+                    const swapOffset = circumference - (swapUnusedPercent / 100) * circumference;
+                    swapCircle.style.strokeDasharray = `${circumference - swapOffset} ${swapOffset}`;
+                }
+
+                // 更新系统信息显示
+                document.getElementById('sys-version').textContent = data.system_version || 'Unknown';
+                document.getElementById('sys-arch').textContent = data.machine || 'Unknown';
+                // processor已经手写为"Cortex A53"，不再从数据读取
+                document.getElementById('sys-cpu-cores').textContent = data.cpu_count || 'Unknown';
+                
+                // 格式化CPU频率
+                const cpuFreq = data.cpu_freq_current ? `${data.cpu_freq_current.toFixed(0)} MHz` : 'Unknown';
+                document.getElementById('sys-cpu-freq').textContent = cpuFreq;
+                
+                // 格式化磁盘使用情况
+                const diskUsage = `${data.disk_used.toFixed(1)} GB / ${data.disk_total.toFixed(1)} GB (${data.disk_percent.toFixed(1)}%)`;
+                document.getElementById('sys-disk-usage').textContent = diskUsage;
+
+                // 计算网络流速
+                let upSpeed = 0;
+                let downSpeed = 0;
+                if (lastNet.time > 0) {
+                    const timeDiff = (now - lastNet.time) / 1000;
+                    if (timeDiff > 0) {
+                        upSpeed = Math.max(0, (data.net_sent - lastNet.sent) / timeDiff);
+                        downSpeed = Math.max(0, (data.net_recv - lastNet.recv) / timeDiff);
+                    }
+                }
+                lastNet = { sent: data.net_sent, recv: data.net_recv, time: now };
+                document.getElementById('net-up-val').innerText = formatBytes(upSpeed);
+                document.getElementById('net-down-val').innerText = formatBytes(downSpeed);
+
+                // 滚动数据数组
+                historyData.cpu.shift(); historyData.cpu.push(data.cpu_percent);
+                historyData.mem.shift(); historyData.mem.push(data.mem_percent);
+                historyData.swap.shift(); historyData.swap.push(data.swap_percent);
+                
+                // 如果是第一次加载进程数，用当前值填满数组避免折线从底部爬升
+                if (historyData.proc[0] === null) {
+                    historyData.proc.fill(data.procs);
+                }
+                historyData.proc.shift(); historyData.proc.push(data.procs);
+                
+                historyData.netUp.shift(); historyData.netUp.push(upSpeed);
+                historyData.netDown.shift(); historyData.netDown.push(downSpeed);
+
+                // 更新图表配置
+                updateChartConfigs();
+
+            } catch (error) {
+                console.error("Fetch error:", error);
+            }
         }
-        draw();
+
+        // 初始化
+        const init = () => {
+            // 初始更新图表配置
+            updateChartConfigs();
+            
+            // 启动轮询 (每2秒)
+            setInterval(fetchData, 2000);
+            
+            // 立即获取一次数据
+            fetchData();
+            
+            // 响应式自适应
+            window.addEventListener('resize', () => {
+                Object.values(charts).forEach(chart => chart.resize());
+            });
+        };
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
 </html>
