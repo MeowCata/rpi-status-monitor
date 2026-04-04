@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>RPi Zero Status</title>
+    <style>
+        body { background: #0b0c10; color: #66fcf1; font-family: monospace; text-align: center; margin: 0; padding: 20px;}
+        canvas { background: #1f2833; border-radius: 8px; margin-top: 20px; box-shadow: 0 0 15px rgba(102, 252, 241, 0.2); }
+        .dashboard { display: flex; justify-content: center; align-items: center; gap: 30px; margin-top: 10px; font-size: 1.2rem; }
+        button { padding: 10px 25px; background: #45a29e; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #66fcf1; color: #0b0c10; }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <div id="stats">CPU: --% | RAM: --% | Temp: --°C</div>
+        <button onclick="control('start')">运行</button>
+        <button onclick="control('stop')">暂停</button>
+    </div>
+    <canvas id="simCanvas" width="800" height="500"></canvas>
+
+    <script>
+        let isRunning = true;
+        
+        // 监控数据轮询
+        setInterval(async () => {
+            const res = await fetch('/api/stats');
+            const data = await res.json();
+            document.getElementById('stats').innerText = `CPU: ${data.cpu}% | RAM: ${data.ram}% | Temp: ${data.temp}°C`;
+            isRunning = data.running;
+        }, 2000);
+
+        async function control(action) {
+            await fetch(`/api/control/${action}`, {method: 'POST'});
+        }
+
+        // 简易渲染循环框架（你可以在此接入牛顿万有引力公式计算三体坐标）
+        const ctx = document.getElementById('simCanvas').getContext('2d');
+        function draw() {
+            if (isRunning) {
+                // 绘制逻辑与坐标更新...
+                ctx.fillStyle = 'rgba(31, 40, 51, 0.1)'; // 产生拖尾效果
+                ctx.fillRect(0, 0, 800, 500);
+            }
+            requestAnimationFrame(draw);
+        }
+        draw();
+    </script>
+</body>
+</html>
