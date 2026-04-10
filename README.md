@@ -103,18 +103,19 @@ sudo systemctl enable rpi-monitor.service
 sudo systemctl start rpi-monitor.service
 ```
 
-## Something to emphasize
-1.For some reason the `Processor` on RPi can't be read by Linux, so edit [Line 494 in index.html](https://github.com/MeowCata/rpi-status-monitor/blob/main/templates/index.html#L494) to match your real CPU Model
-
-2.Near 5M tokens are used (Cline's literally burning tokens😡), but costing only ~2.1 CNY, so cheap!
-
-3.Using `ZRAM` for swap is recommended if you don't wanna exert your poor SD card and let it die when it's still young
-
 ## Screenshot:
-<img width="1544" height="854" alt="image" src="https://github.com/user-attachments/assets/270fe9b9-5e6e-4d4e-9fe7-e4146707dca5" />
+<img width="1575" height="849" alt="image" src="https://github.com/user-attachments/assets/c1185e5d-3c0f-4b2b-aaf5-1cea50e1e6e1" />
+
 <br></br>
 <img width="364" height="22" alt="image" src="https://github.com/user-attachments/assets/1eaf370e-c5bc-4934-a5fc-b2173af4c0d3" />
 
 Runs perfectly on my `RPi Zero 2 W` while consuming ~30MB memory, maybe not that good on memory-intensive devices? (Zero 2 W has only 512MB, and 464MB can be used)
 
 Anyway, that's fine for me and I'm gonna use it as my RPi status monitor
+
+## Something to emphasize
+1.For some reason the `Processor` on RPi can't be read by Linux, so edit [Line 494 in index.html](https://github.com/MeowCata/rpi-status-monitor/blob/main/templates/index.html#L494) to match your real CPU Model
+
+2.Near 5M tokens are used (Cline's literally burning tokens😡), but costing only ~2.1 CNY, so cheap!
+
+3.Using `ZRAM` for swap is recommended if you don't wanna exert your poor SD card and let it die when it's still young
