@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,6 +7,29 @@
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
     <style>
         :root {
+            --bg-color: #f8f9fa;
+            --card-bg: #ffffff;
+            --card-bg-hover: #f5f7fa;
+            --text-main: #2c3e50;
+            --text-muted: #7f8c8d;
+            --border-color: #e0e6ed;
+            --cpu-color: #3498db;
+            --mem-color: #9b59b6;
+            --proc-color: #e74c3c;
+            --net-up: #3498db;
+            --net-down: #9b59b6;
+            --success-color: #2ecc71;
+            --warning-color: #f39c12;
+            --danger-color: #e74c3c;
+            --ssh-color: #1abc9c;
+            --header-bg: #ffffff;
+            --shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            --gradient-start: rgba(52, 152, 219, 0.1);
+            --gradient-end: rgba(52, 152, 219, 0);
+            --status-indicator-size: 10px;
+        }
+
+        body.dark-theme {
             --bg-color: #0d1117;
             --card-bg: #161b22;
             --card-bg-hover: #1c2128;
@@ -21,6 +44,7 @@
             --success-color: #3fb950;
             --warning-color: #d29922;
             --danger-color: #f85149;
+            --ssh-color: #1abc9c;
             --header-bg: #161b22;
             --shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
             --gradient-start: rgba(88, 166, 255, 0.2);
@@ -75,8 +99,20 @@
 
         .grid-container {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            grid-template-columns: repeat(3, 1fr);
             gap: 20px;
+        }
+        
+        .grid-container > .metric-card:nth-child(4) {
+            grid-column: 1;
+        }
+        
+        .grid-container > .metric-card:nth-child(5) {
+            grid-column: 2;
+        }
+        
+        .grid-container > .metric-card:nth-child(6) {
+            grid-column: 3;
         }
 
         .metric-card {
@@ -187,6 +223,16 @@
             background-color: var(--danger-color);
         }
 
+        .status-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-left: 4px;
+            margin-right: 2px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+
         .memory-stats {
             display: flex;
             gap: 12px;
@@ -263,6 +309,7 @@
         .title-section {
             display: flex;
             align-items: center;
+            justify-content: space-between;
             margin-bottom: 14px;
         }
 
@@ -277,6 +324,52 @@
             font-size: 13px;
             color: var(--text-muted);
             margin-left: 10px;
+        }
+
+        .theme-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            padding: 6px 12px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            transition: all 0.2s ease;
+        }
+
+        .theme-toggle:hover {
+            background: var(--card-bg-hover);
+            border-color: var(--cpu-color);
+        }
+
+        .theme-icon {
+            font-size: 14px;
+        }
+
+        .neofetch-card {
+            grid-column: span 2;
+        }
+
+        .neofetch-content {
+            font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+            font-size: 12px;
+            line-height: 1.4;
+            color: var(--text-main);
+            white-space: pre-wrap;
+            overflow: auto;
+            max-height: 300px;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.03);
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+        }
+
+        .neofetch-content.dark-mode {
+            background: rgba(255, 255, 255, 0.05);
         }
 
         .system-info-grid {
@@ -310,7 +403,7 @@
             font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
         }
 
-        /* 响应式设计 - 手机端优化 */
+        /* Responsive design - Mobile optimization */
         @media (max-width: 768px) {
             .container {
                 padding: 12px;
@@ -387,8 +480,14 @@
 
     <div class="container">
         <div class="title-section">
-            <h1>Raspberry Pi Dashboard</h1>
-            <div class="subtitle">Real-time System Monitoring</div>
+            <div>
+                <h1>Raspberry Pi Dashboard</h1>
+                <div class="subtitle">Real-time System Monitoring</div>
+            </div>
+            <div class="theme-toggle" id="theme-toggle">
+                <span class="theme-icon">🌙</span>
+                <span>Dark Mode</span>
+            </div>
         </div>
 
         <div class="dashboard-header">
@@ -408,7 +507,16 @@
                 <div class="sys-info-item">
                     <span>Temp:</span>
                     <strong id="temp-display">-- °C</strong>
+                    <span class="status-label">Utilize</span>
                     <span class="status-indicator" id="cpu-status-indicator"></span>
+                </div>
+                <div class="sys-info-item">
+                    <span>SSH Users:</span>
+                    <strong id="ssh-users-display">--</strong>
+                </div>
+                <div class="sys-info-item">
+                    <span class="status-label">Net</span>
+                    <span class="status-indicator" id="net-status-indicator"></span>
                 </div>
             </div>
         </div>
@@ -491,7 +599,7 @@
                 </div>
                 <div class="system-info-item">
                     <span class="info-label">Processor:</span>
-                    <span class="info-value" id="sys-processor">ARM Cortex-A53</span>
+                    <span class="info-value" id="sys-processor">--</span>
                 </div>
                 <div class="system-info-item">
                     <span class="info-label">CPU Cores:</span>
@@ -507,10 +615,46 @@
                 </div>
             </div>
         </div>
+
+        <div class="metric-card neofetch-card">
+            <div class="card-header">
+                <span>Neofetch Output</span>
+            </div>
+            <div id="neofetch-content" class="neofetch-content">
+                Loading neofetch information...
+            </div>
+        </div>
     </div>
 
     <script>
-        // 初始化图表
+        // Theme management
+        const themeToggle = document.getElementById('theme-toggle');
+        let isDarkMode = localStorage.getItem('theme') === 'dark';
+
+        // Apply theme on load
+        function applyTheme() {
+            if (isDarkMode) {
+                document.body.classList.add('dark-theme');
+                themeToggle.innerHTML = '<span class="theme-icon">☀️</span><span>Light Mode</span>';
+                document.getElementById('neofetch-content').classList.add('dark-mode');
+            } else {
+                document.body.classList.remove('dark-theme');
+                themeToggle.innerHTML = '<span class="theme-icon">🌙</span><span>Dark Mode</span>';
+                document.getElementById('neofetch-content').classList.remove('dark-mode');
+            }
+        }
+
+        // Toggle theme
+        themeToggle.addEventListener('click', () => {
+            isDarkMode = !isDarkMode;
+            localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
+            applyTheme();
+        });
+
+        // Initialize theme
+        applyTheme();
+
+        // Initialize charts
         const charts = {
             cpu: echarts.init(document.getElementById('chart-cpu')),
             mem: echarts.init(document.getElementById('chart-mem')),
@@ -518,7 +662,7 @@
             net: echarts.init(document.getElementById('chart-net'))
         };
 
-        // 数据存储数组 (保留30个数据点，约1分钟，每2秒一个点)
+        // Data storage array (keep 30 data points, about 1 minute, 2 seconds per point)
         const historyData = {
             cpu: Array(30).fill(0),
             mem: Array(30).fill(0),
@@ -528,10 +672,12 @@
             netDown: Array(30).fill(0)
         };
 
-        // 网络计算状态
+        // Network calculation state
         let lastNet = { sent: 0, recv: 0, time: 0 };
+        let lastUpdateTime = 0;
+        let netStatusCheckInterval = null;
 
-        // 格式化网速
+        // Format network speed
         const formatBytes = (bytes) => {
             if (bytes === 0) return '0 B/s';
             const k = 1024;
@@ -540,7 +686,7 @@
             return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
         };
 
-        // 格式化运行时间
+        // Format uptime
         const formatUptime = (seconds) => {
             const d = Math.floor(seconds / 86400);
             const h = Math.floor((seconds % 86400) / 3600);
@@ -548,7 +694,63 @@
             return `${d}d ${h}h ${m}m`;
         };
 
-        // 计算数据的动态范围
+        // Format timestamp to readable time
+        const formatTimestamp = (timestamp) => {
+            const now = Date.now() / 1000;
+            const diff = now - timestamp;
+            
+            if (diff < 1) {
+                return "just now";
+            } else if (diff < 60) {
+                return `${Math.floor(diff)} seconds ago`;
+            } else if (diff < 3600) {
+                const minutes = Math.floor(diff / 60);
+                return `${minutes} minute${minutes !== 1 ? 's' : ''} ago`;
+            } else if (diff < 86400) {
+                const hours = Math.floor(diff / 3600);
+                return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
+            } else {
+                const days = Math.floor(diff / 86400);
+                return `${days} day${days !== 1 ? 's' : ''} ago`;
+            }
+        };
+
+        // Update network status indicator
+        const updateNetStatusIndicator = () => {
+            const now = Date.now() / 1000;
+            const netIndicator = document.getElementById('net-status-indicator');
+            
+            if (lastUpdateTime === 0) {
+                netIndicator.className = 'status-indicator status-danger';
+                return;
+            }
+            
+            const timeDiff = now - lastUpdateTime;
+            if (timeDiff > 5) { // No data for 5 seconds
+                netIndicator.className = 'status-indicator status-danger';
+            } else {
+                netIndicator.className = 'status-indicator';
+            }
+        };
+
+        // Fetch neofetch data (only once on page load)
+        async function fetchNeofetch() {
+            try {
+                const res = await fetch('/api/neofetch');
+                const data = await res.json();
+                const neofetchContent = document.getElementById('neofetch-content');
+                neofetchContent.textContent = data.neofetch || 'No neofetch data available';
+                // Apply dark mode class if needed
+                if (isDarkMode) {
+                    neofetchContent.classList.add('dark-mode');
+                }
+            } catch (error) {
+                console.error("Error fetching neofetch:", error);
+                document.getElementById('neofetch-content').textContent = 'Failed to load neofetch information';
+            }
+        }
+
+        // Calculate dynamic range for data
         const calculateDynamicRange = (data, minPadding = 0.1) => {
             if (data.length === 0) return { min: 0, max: 100 };
             
@@ -558,7 +760,7 @@
             let min = Math.min(...validData);
             let max = Math.max(...validData);
             
-            // 添加一些padding
+            // Add some padding
             const range = max - min;
             if (range === 0) {
                 min = Math.max(0, min - min * minPadding);
@@ -571,17 +773,17 @@
             return { min, max };
         };
 
-        // 获取渐变色对象
+        // Get gradient color object
         const getGradient = (hexColor) => {
             return new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                { offset: 0, color: hexColor + '80' }, // 50% 透明度
-                { offset: 1, color: hexColor + '10' }  // 10% 透明度
+                { offset: 0, color: hexColor + '80' }, // 50% opacity
+                { offset: 1, color: hexColor + '10' }  // 10% opacity
             ]);
         };
 
-        // 更新图表配置
+        // Update chart configurations
         const updateChartConfigs = () => {
-            // 显示30个数据点（1分钟）
+            // Show 30 data points (1 minute)
             const dataPoints = 30;
             const displayData = {
                 cpu: historyData.cpu.slice(-dataPoints),
@@ -592,13 +794,13 @@
                 netDown: historyData.netDown.slice(-dataPoints)
             };
 
-            // 计算动态范围
+            // Calculate dynamic ranges
             const cpuRange = calculateDynamicRange(displayData.cpu);
             const memRange = calculateDynamicRange([...displayData.mem, ...displayData.swap]);
             const procRange = calculateDynamicRange(displayData.proc);
             const netRange = calculateDynamicRange([...displayData.netUp, ...displayData.netDown]);
 
-            // 基础配置
+            // Base configuration
             const baseOption = {
                 grid: { top: 10, bottom: 0, left: 0, right: 0 },
                 xAxis: { 
@@ -635,7 +837,7 @@
                 }
             };
 
-            // 更新CPU图表
+            // Update CPU chart
             charts.cpu.setOption({
                 ...baseOption,
                 yAxis: { 
@@ -656,7 +858,7 @@
                 }]
             });
 
-            // 更新内存图表（双折线：内存和swap）
+            // Update memory chart (dual line: memory and swap)
             charts.mem.setOption({
                 ...baseOption,
                 yAxis: { 
@@ -687,7 +889,7 @@
                 ]
             });
 
-            // 更新进程图表
+            // Update processes chart
             charts.proc.setOption({
                 ...baseOption,
                 yAxis: { 
@@ -708,7 +910,7 @@
                 }]
             });
 
-            // 更新网络图表
+            // Update network chart
             charts.net.setOption({
                 ...baseOption,
                 yAxis: { 
@@ -739,22 +941,22 @@
             });
         };
 
-        // 获取系统信息并更新状态指示器
+        // Get system information and update status indicators
         const updateSystemInfo = (data) => {
-            // 更新系统名称
+            // Update system name
             document.getElementById('system-display').textContent = `${data.system} (RPi)`;
             
-            // 更新运行时间
+            // Update uptime
             document.getElementById('uptime-display').innerHTML = `Uptime:<strong>${formatUptime(data.uptime)}</strong>`;
             
-            // 更新负载
+            // Update load
             document.getElementById('load-display').innerHTML = `Load:<strong>${data.load}</strong>`;
             
-            // 更新温度
+            // Update temperature
             const temp = data.temp;
             document.getElementById('temp-display').innerHTML = `Temp:<strong>${temp} °C</strong>`;
             
-            // 根据CPU占用更新状态指示器（放在温度之后）
+            // Update status indicator based on CPU usage (placed after temperature)
             const cpuPercent = data.cpu_percent;
             const statusIndicator = document.getElementById('cpu-status-indicator');
             if (cpuPercent > 80) {
@@ -772,26 +974,33 @@
                 const data = await res.json();
                 const now = Date.now();
 
-                // 更新系统信息
+                // Update last reported time
+                lastUpdateTime = data.timestamp;
+                
+                // Update SSH user count
+                const sshUsers = data.ssh_users || 0;
+                document.getElementById('ssh-users-display').innerHTML = `SSH Users:<strong>${sshUsers}</strong>`;
+
+                // Update system information
                 updateSystemInfo(data);
 
-                // 更新静态数值
+                // Update static values
                 document.getElementById('cpu-val').innerText = data.cpu_percent.toFixed(1) + '%';
                 document.getElementById('proc-val').innerText = data.procs;
 
-                // 更新内存和swap环形进度条
+                // Update memory and swap circular progress bars
                 const memPercent = data.mem_percent;
                 const swapPercent = data.swap_percent;
                 
-                // 更新百分比显示
+                // Update percentage display
                 document.getElementById('mem-percent').innerText = memPercent.toFixed(0) + '%';
                 document.getElementById('swap-percent').innerText = swapPercent.toFixed(0) + '%';
                 
-                // 更新内存详情显示
+                // Update memory details display
                 document.getElementById('mem-detail').innerText = `${data.mem_used.toFixed(0)}MB/${data.mem_total.toFixed(0)}MB`;
                 document.getElementById('swap-detail').innerText = `${data.swap_used.toFixed(0)}MB/${data.swap_total.toFixed(0)}MB`;
                 
-                // 更新环形进度条
+                // Update circular progress bars
                 const memCircle = document.querySelector('.circle-progress:not(.reverse) .circle-progress-bar');
                 const swapCircle = document.querySelector('.circle-progress.reverse .circle-progress-bar');
                 
@@ -803,28 +1012,28 @@
                 
                 if (swapCircle) {
                     const circumference = 2 * Math.PI * 16;
-                    // 对于反向环状图，占用越多黑色部分越多
-                    // 所以显示的部分是未占用的部分
+                    // For reverse circular chart, more usage means more black part
+                    // So the displayed part is the unused portion
                     const swapUnusedPercent = 100 - swapPercent;
                     const swapOffset = circumference - (swapUnusedPercent / 100) * circumference;
                     swapCircle.style.strokeDasharray = `${circumference - swapOffset} ${swapOffset}`;
                 }
 
-                // 更新系统信息显示
+                // Update system information display
                 document.getElementById('sys-version').textContent = data.system_version || 'Unknown';
                 document.getElementById('sys-arch').textContent = data.machine || 'Unknown';
-                // processor已经手写为"Cortex A53"，不再从数据读取
+                document.getElementById('sys-processor').textContent = data.processor || 'Unknown';
                 document.getElementById('sys-cpu-cores').textContent = data.cpu_count || 'Unknown';
                 
-                // 格式化CPU频率
+                // Format CPU frequency
                 const cpuFreq = data.cpu_freq_current ? `${data.cpu_freq_current.toFixed(0)} MHz` : 'Unknown';
                 document.getElementById('sys-cpu-freq').textContent = cpuFreq;
                 
-                // 格式化磁盘使用情况
+                // Format disk usage
                 const diskUsage = `${data.disk_used.toFixed(1)} GB / ${data.disk_total.toFixed(1)} GB (${data.disk_percent.toFixed(1)}%)`;
                 document.getElementById('sys-disk-usage').textContent = diskUsage;
 
-                // 计算网络流速
+                // Calculate network flow speed
                 let upSpeed = 0;
                 let downSpeed = 0;
                 if (lastNet.time > 0) {
@@ -838,12 +1047,15 @@
                 document.getElementById('net-up-val').innerText = formatBytes(upSpeed);
                 document.getElementById('net-down-val').innerText = formatBytes(downSpeed);
 
-                // 滚动数据数组
+                // Update network status indicator
+                updateNetStatusIndicator();
+
+                // Shift data arrays
                 historyData.cpu.shift(); historyData.cpu.push(data.cpu_percent);
                 historyData.mem.shift(); historyData.mem.push(data.mem_percent);
                 historyData.swap.shift(); historyData.swap.push(data.swap_percent);
                 
-                // 如果是第一次加载进程数，用当前值填满数组避免折线从底部爬升
+                // If it's the first time loading process count, fill array with current value to avoid line climbing from bottom
                 if (historyData.proc[0] === null) {
                     historyData.proc.fill(data.procs);
                 }
@@ -852,32 +1064,41 @@
                 historyData.netUp.shift(); historyData.netUp.push(upSpeed);
                 historyData.netDown.shift(); historyData.netDown.push(downSpeed);
 
-                // 更新图表配置
+                // Update chart configurations
                 updateChartConfigs();
 
             } catch (error) {
                 console.error("Fetch error:", error);
+                // If fetch fails, update network status to red
+                const netIndicator = document.getElementById('net-status-indicator');
+                netIndicator.className = 'status-indicator status-danger';
             }
         }
 
-        // 初始化
+        // Initialize
         const init = () => {
-            // 初始更新图表配置
+            // Initial chart configuration update
             updateChartConfigs();
             
-            // 启动轮询 (每2秒)
+            // Start polling (every 2 seconds)
             setInterval(fetchData, 2000);
             
-            // 立即获取一次数据
+            // Start network status check (every second)
+            setInterval(updateNetStatusIndicator, 1000);
+            
+            // Fetch initial data immediately
             fetchData();
             
-            // 响应式自适应
+            // Fetch neofetch data (only once)
+            fetchNeofetch();
+            
+            // Responsive resizing
             window.addEventListener('resize', () => {
                 Object.values(charts).forEach(chart => chart.resize());
             });
         };
 
-        // 页面加载完成后初始化
+        // Initialize when page loads
         document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
